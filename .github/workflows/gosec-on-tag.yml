@@ -1,0 +1,40 @@
+name: Manual Gosec Scan on Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'The existing Git tag to scan (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  sast-scan:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on # Ensure Go modules are used for dependency fetching
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          # Checkout the specific tag provided via the workflow input
+          ref: refs/tags/${{ github.event.inputs.tag_name }}
+
+      - name: Set up Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23' # Specify your project's Go version
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          # Run gosec on the checked out code and output a SARIF file for GitHub Code Scanning integration (optional but recommended)
+          args: '-no-fail -fmt sarif -out results.sarif ./...'
+
+      - name: Upload SARIF file to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
